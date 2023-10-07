@@ -5,7 +5,7 @@ using Combinatorics
 using AbstractTrees
 
 
-operations = [+, -, *, /, ^]
+operations = [+, -, *, /]
 
 #const operations = [
 #    (x,y) -> x + y
@@ -25,7 +25,7 @@ end
 function Node()
     return Node(0,nothing,nothing)
 end
-function Node(x::Int)
+function Node(x)
     return Node(x, nothing, nothing)
 end
 function Node(x, l, r)
@@ -61,6 +61,25 @@ function allPossibleFBT(n)
     return result
 end
 
+using ResumableFunctions
+@resumable function BSTGenerator(v)
+    n = length(v)
+    result = Node[]
+    if n == 1
+        push!(result, Node(v[n]))
+    end
+    for i in 1:2:n-1
+        left = allPossibleFBTvec(v[begin:i])
+        right = allPossibleFBTvec(v[i+1:end])
+        for l in left
+            for r in right
+                root = Node(nothing, l, r)
+                @yield root
+            end
+        end
+    end
+end
+
 function allPossibleFBTvec(v)
     n = length(v)
     result = Node[]
@@ -94,7 +113,31 @@ function postOrderTraversal!(root, opStack)
     return root, opStack
 end
 
-function attemptAllOperation(tree, operations, nleaves, target=nothing)
+@resumable function attemptAllOperationIter(tree, operations, nleaves)
+    n = 2*nleaves - 1
+    op_generator = with_replacement_combinations(operations, n)
+    for ops in op_generator
+        t = deepcopy(tree)
+        (ret, _) = postOrderTraversal!(t, ops)
+        @yield ret
+    end
+end
+"""
+Check this out!
+"""
+function for_example(v=[2,2,3,4,5,6], target=10, operations=[+,-,*,/])
+    for tree in BSTGenerator(v)
+        for solve in attemptAllOperationIter(tree, operations, length(v))
+            if solve.val == target
+                print_tree(solve, maxdepth=16)
+                return solve
+            end
+        end
+    end
+end
+
+
+function attemptAllOperation(tree, operations, nleaves)
     n = nleaves
     k = length(operations)
     op_generator = with_replacement_combinations(operations, n-1)
@@ -161,4 +204,54 @@ function showTree(n, indent=0)
         printstyled(spacing * ")",color=indent+1)
         println()
     end
+end
+
+using Plots; plotly()
+function nutsPlot()
+
+    inputs = [[a,b,c] for a in 0:0.1:9 for b in 0:0.1:9 for c in 0:0.1:9]
+
+    outputs = filter!(x->quick_solve_train_number(10, x, operations), inputs)
+
+    X = [c[1] for c in outputs]
+    Y = [c[2] for c in outputs]
+    Z = [c[3] for c in outputs]
+
+    return scatter(X,Y,Z)
+
+end
+
+function get_tree_as_maths(tree, root=true)::String
+    if isnothing(tree.l) && isnothing(tree.r)
+        return repr(tree.val)
+    end
+    lhs = repr(tree.val)
+    rhs = "(" * get_tree_as_maths(tree.l, false) * repr(tree.op) * get_tree_as_maths(tree.r, false) * ")"
+    if root
+        return lhs * "=" * rhs
+    else
+        return rhs
+    end
+end
+
+function quick_solver(input::String, operations=operations, target=10)
+
+    v = [parse(Int, x) for x in split(input, "")]
+    println(v)
+
+    solved = nothing
+    for tree in BSTGenerator(v)
+        for solve in attemptAllOperationIter(tree, operations, length(v))
+            if solve.val == target
+                solved = solve
+            end
+        end
+    end
+    if !isnothing(solved)
+        println(get_tree_as_maths(solved))
+        print_tree(solved, maxdepth=16)
+    else
+        println("No solution found!")
+    end
+
 end
