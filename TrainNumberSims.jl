@@ -7,14 +7,6 @@ using AbstractTrees
 
 operations = [+, -, *, /]
 
-#const operations = [
-#    (x,y) -> x + y
-#    (x,y) -> x - y
-#    (x,y) -> x / y
-#    (x,y) -> x * y
-#]
-
-
 mutable struct Node
     val::Union{Float64, Nothing}
     l::Union{Node, Nothing}
@@ -32,14 +24,25 @@ function Node(x, l, r)
     return Node(x, l, r, nothing)
 end
 
-AbstractTrees.children(n::Node) = [n.l, n.r]
-AbstractTrees.nodevalue(n::Node) = (n.val, n.op)
-
-function myprintnode(io::IO, node; kw...)
-    print("$(node.val) ($(repr(node.op)))")
+AbstractTrees.children(n::Node) = begin
+    leaf = all(isnothing([n.l,n.r]))
+    return leaf ? nothing : [n.l, n.r]
 end
-function myprintchildkey(io::IO, node; kw...)
-    print("$(node.l) $(node.r)")
+AbstractTrees.nodevalue(n::Node) = begin
+    leaf = all(isnothing([n.l,n.r]))
+    return leaf ? n.val : (n.val, n.op)
+end
+
+function AbstractTrees.printnode(io::IO, p::Node)
+    leaf = all(isnothing(AbstractTrees.children(p)))
+    str = leaf ? string(p.val) : string(p.val, ", ", string(p.op))
+    print(io, str)
+end
+
+function AbstractTrees.print_child_key(io::IO, k)
+    leaf = all(isnothing(AbstractTrees.children(k)))
+    str = leaf ? "" : k.val
+    print(io, str)
 end
 
 function allPossibleFBT(n)
@@ -136,6 +139,16 @@ function for_example(v=[2,2,3,4,5,6], target=10, operations=[+,-,*,/])
     end
 end
 
+function quickSolve(v=[2,2,3,4,5,6], target=10, operations=[+,-,*,/])
+    for tree in BSTGenerator(v)
+        for solve in attemptAllOperationIter(tree, operations, length(v))
+            if solve.val == target
+                return solve
+            end
+        end
+    end
+    return nothing
+end
 
 function attemptAllOperation(tree, operations, nleaves)
     n = nleaves
@@ -207,9 +220,9 @@ function showTree(n, indent=0)
 end
 
 using Plots; plotly()
-function nutsPlot()
+function nutsPlot(operations=operations)
 
-    inputs = [[a,b,c] for a in 0:0.1:9 for b in 0:0.1:9 for c in 0:0.1:9]
+    inputs = [[a,b,c] for a in 0:0.1:9 for b in 0:9 for c in 0:9]
 
     outputs = filter!(x->quick_solve_train_number(10, x, operations), inputs)
 
@@ -236,7 +249,13 @@ end
 
 function quick_solver(input::String, operations=operations, target=10)
 
-    v = [parse(Int, x) for x in split(input, "")]
+
+    v = try
+            [parse(Int, x) for x in split(input, "")]
+        catch
+            println("Invalid input!")
+            return
+        end
     println(v)
 
     solved = nothing
