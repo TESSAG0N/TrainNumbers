@@ -1,6 +1,9 @@
 # Train number input space
 # 4 Numbers {a, b, c, d} drawn from single digit integers x in [0...9]
 #
+
+module TrainNumbers
+
 using Combinatorics
 using AbstractTrees
 
@@ -273,4 +276,7 @@ function quick_solver(input::String, operations=operations, target=10)
         println("No solution found!")
     end
 
+end
+
+#[module TrainNumbers]
 end
