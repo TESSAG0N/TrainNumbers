@@ -278,5 +278,36 @@ function quick_solver(input::String, operations=operations, target=10)
 
 end
 
+function createCountingMatrix(n)
+    return map(x->x==0 ? -1 : 1,
+            mapreduce(
+                permutedims, vcat,
+                [digits(i, base=2, pad=n) for i in 0:2^n-1]
+        ))
+end
+
+function solveForAll(n, target)::Matrix{Int}
+    m = createCountingMatrix(n)
+    inputs = collect(with_replacement_combinations(collect(0:9), n))
+    outputs = filter!(x->any(==(target), m*x), inputs)
+    return reduce(hcat, outputs)
+end
+
+function getOutsFromMatrix(o)
+    X = o[1,:]
+    Y = o[2,:]
+    Z = o[3,:]
+    return (X,Y,Z)
+end
+
+function linearAlgSolveReducedTrainGame(a, target)
+    n = length(a)
+    m = createCountingMatrix(n)
+    display(m)
+    display(a)
+    display(m*a)
+    return any(==(target), m*a)
+end
+
 #[module TrainNumbers]
 end
