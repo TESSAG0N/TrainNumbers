@@ -12,35 +12,63 @@ function linear_train_program(A, target; verbose=true)
     verbose && println("Input: $A")
     verbose && println("Target: $(target)")
     model = Model(HiGHS.Optimizer)
-    set_attribute(model, "log_to_console", false)
+    !verbose && set_attribute(model, "log_to_console", false)
 
     n = length(A)
 
+    """
+    Create the n×2 table of parameters s.t. we can only have
+    either a num or its inverse
+    """
     @variable(model, x[1:n, 1:2], Bin)
 
+    """
+    Create the matching table of numbers and their inverse
+    """
     c = [[a, -a] for a in A]
     C = reduce(vcat, c')
 
+    """
+    Simulate xᵢ₁ ∧ ¬xᵢ₂ by making the sum of each row equal to 1
+    """
     cons = map(i->@constraint(model, x[i,1] + x[i,2] == 1), 1:n)
     verbose && println("Boolean constraints:")
     verbose && foreach(println, cons)
 
 
+    """
+    Just helpful organising
+    Each row of the "tower" is
+        cᵢ⋅xᵢ₁ - cᵢ⋅xᵢ₂ (remember what we defined for x earlier?)
+    """
     tower = [C[i,1]*x[i,1] + C[i,2]*x[i,2] for i in 1:n]
     verbose && println("Tower")
     verbose && display(tower)
 
+    """
+    The sum of all these expressions should be less than the target (train num)
+    """
     con = @constraint(model, sum(tower) <= target)
     verbose && println("Target constraints:")
     verbose && println(con)
 
+    """
+    Also maximise the sum of these expressions
+    """
     ob = @objective(model, Max, sum(tower))
     verbose && println("Objectives:")
     verbose && println(ob)
 
 
+    """
+    and we're off...
+    """
     optimize!(model);
 
+    """
+
+    ...dont read this
+    """
     if verbose && has_values(model)
         println(repeat("-", 20))
         s = objective_value(model) == target ? "Train number!" : "No train number :("
