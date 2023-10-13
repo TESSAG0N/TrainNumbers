@@ -279,20 +279,23 @@ function quick_solver(input::String, operations=operations, target=10)
 end
 
 function createCountingMatrix(n)
-    return map(x->x==0 ? -1 : 1,
-            mapreduce(
-                permutedims, vcat,
-                [digits(i, base=2, pad=n) for i in 0:2^n-1]
-        ))
+    m = map.(x->iszero(x) ? -1 : 1, [digits(i, base=2, pad=n) for i in 0:2^n-1])
+    return reduce(hcat, m)'
 end
 
-function solveForAll(n, target)::Matrix{Int}
-    m = createCountingMatrix(n)
+
+function AdditiveSolutions(n, target; m=createCountingMatrix(n))
     inputs = collect(with_replacement_combinations(collect(0:9), n))
-    outputs = filter!(x->any(==(target), m*x), inputs)
+    outputs = filter(x->any(==(target), m*x), inputs)
+    if isempty(outputs)
+        return Matrix{}(undef,0,0)
+    end
     return reduce(hcat, outputs)
 end
 
+function addSubtractOuts(x;m=createCountingMatrix(length(x)))
+    return m*x
+end
 function getOutsFromMatrix(o)
     X = o[1,:]
     Y = o[2,:]
@@ -303,9 +306,6 @@ end
 function linearAlgSolveReducedTrainGame(a, target)
     n = length(a)
     m = createCountingMatrix(n)
-    display(m)
-    display(a)
-    display(m*a)
     return any(==(target), m*a)
 end
 
